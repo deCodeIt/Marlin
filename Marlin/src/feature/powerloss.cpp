@@ -340,43 +340,6 @@ void PrintJobRecovery::resume() {
     gcode.process_subcommands_now_P(PSTR("M420 S0 Z0"));
   #endif
 
-  // Reset E, raise Z, home XY...
-  #if Z_HOME_DIR > 0
-
-    // If Z homing goes to max, just reset E and home all
-    gcode.process_subcommands_now_P(PSTR(
-      "G92.9 E0\n"
-      "G28R0"
-    ));
-
-  #else // "G92.9 E0 ..."
-
-    // Set Z to 0, raise Z by info.zraise, and Home (XY only for Cartesian)
-    // with no raise. (Only do simulated homing in Marlin Dev Mode.)
-
-    sprintf_P(cmd, PSTR("G92.9 E0 "
-        #if ENABLED(BACKUP_POWER_SUPPLY)
-          "Z%s"                             // Z was already raised at outage
-        #else
-          "Z0\nG1Z%s"                       // Set Z=0 and Raise Z now
-        #endif
-      ),
-      dtostrf(info.zraise, 1, 3, str_1)
-    );
-    gcode.process_subcommands_now(cmd);
-
-    gcode.process_subcommands_now_P(PSTR(
-      "G28R0"                               // No raise during G28
-      #if IS_CARTESIAN && DISABLED(POWER_LOSS_RECOVER_ZHOME)
-        "XY"                                // Don't home Z on Cartesian unless overridden
-      #endif
-    ));
-
-  #endif
-
-  // Pretend that all axes are homed
-  set_all_homed();
-
   #if ENABLED(POWER_LOSS_RECOVER_ZHOME)
     // Z has been homed so restore Z to ZsavedPos + POWER_LOSS_ZRAISE
     sprintf_P(cmd, PSTR("G1 F500 Z%s"), dtostrf(info.current_position.z + POWER_LOSS_ZRAISE, 1, 3, str_1));
@@ -479,6 +442,43 @@ void PrintJobRecovery::resume() {
   #if ENABLED(NOZZLE_CLEAN_FEATURE)
     gcode.process_subcommands_now_P(PSTR("G12"));
   #endif
+
+  // Reset E, raise Z, home XY...
+  #if Z_HOME_DIR > 0
+
+    // If Z homing goes to max, just reset E and home all
+    gcode.process_subcommands_now_P(PSTR(
+      "G92.9 E0\n"
+      "G28R0"
+    ));
+
+  #else // "G92.9 E0 ..."
+
+    // Set Z to 0, raise Z by info.zraise, and Home (XY only for Cartesian)
+    // with no raise. (Only do simulated homing in Marlin Dev Mode.)
+
+    sprintf_P(cmd, PSTR("G92.9 E0 "
+        #if ENABLED(BACKUP_POWER_SUPPLY)
+          "Z%s"                             // Z was already raised at outage
+        #else
+          "Z0\nG1Z%s"                       // Set Z=0 and Raise Z now
+        #endif
+      ),
+      dtostrf(info.zraise, 1, 3, str_1)
+    );
+    gcode.process_subcommands_now(cmd);
+
+    gcode.process_subcommands_now_P(PSTR(
+      "G28R0"                               // No raise during G28
+      #if IS_CARTESIAN && DISABLED(POWER_LOSS_RECOVER_ZHOME)
+        "XY"                                // Don't home Z on Cartesian unless overridden
+      #endif
+    ));
+
+  #endif
+
+  // Pretend that all axes are homed
+  set_all_homed();
 
   // Move back to the saved XY
   sprintf_P(cmd, PSTR("G1 X%s Y%s F3000"),
